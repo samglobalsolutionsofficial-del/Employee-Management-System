@@ -1,0 +1,10 @@
+# Ignore everything
+*
+
+# But don't ignore these
+!EMS-main.py
+!requirements.txt
+!.gitignore
+
+# Common exceptions you probably want too
+!README.md
