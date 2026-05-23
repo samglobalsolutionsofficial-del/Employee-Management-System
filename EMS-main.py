@@ -1,74 +1,79 @@
-
 import sqlite3
 
-class User:
-    def __init__(self, id, name, age, email):
+class Employee:
+    def __init__(self, id, full_name, email, phone, date_of_birth, bank_account):
         self.id = id
-        self.name = name
-        self.age = int(age)
+        self.full_name = full_name
         self.email = email
+        self.phone = phone
+        self.date_of_birth = date_of_birth
+        self.bank_account = bank_account
 
     # Alternative constructor 1: from a DB row tuple
     @classmethod
     def from_db_row(cls, row):
-        return cls(row[0], row[1], row[2], row[3])
+        return cls(row[0], row[1], row[2], row[3], row[4], row[5])
 
     # Alternative constructor 2: from form input strings
     @classmethod
-    def from_form(cls, name, age_str, email):
-        try:
-            age = int(age_str)
-            if age < 0:
-                raise ValueError("Age can't be negative")
-            return cls(None, name, age, email) # id=None before saving
-        except ValueError as e:
-            raise ValueError(f"Invalid form data: {e}")
+    def from_form(cls, full_name, email, phone, dob_str, bank_account):
+        if not full_name.strip():
+            raise ValueError("Full name cannot be empty")
+        if not email.strip():
+            raise ValueError("Email cannot be empty")
+        if not phone.strip():
+            raise ValueError("Phone cannot be empty")
+        if not dob_str.strip():
+            raise ValueError("Date of birth cannot be empty")
+        if not bank_account.strip():
+            raise ValueError("Bank account cannot be empty")
+        return cls(None, full_name.strip(), email.strip(), phone.strip(), dob_str.strip(), bank_account.strip())
 
     def __str__(self):
-        return f"[{self.id}] {self.name}, {self.age} yrs, {self.email}"
+        return f"[{self.id}] {self.full_name}, {self.email}, {self.phone}"
 
 # DB setup
-conn = sqlite3.connect("users.db")
+conn = sqlite3.connect("employees.db")
 cursor = conn.cursor()
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS employees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    age INTEGER NOT NULL,
-    email TEXT NOT NULL UNIQUE
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL,
+    date_of_birth TEXT NOT NULL,
+    bank_account TEXT NOT NULL
 )
 """)
 conn.commit()
 
-def save_user(user):
+def save_employee(emp):
     cursor.execute(
-        "INSERT INTO users (name, age, email) VALUES (?,?,?)",
-        (user.name, user.age, user.email)
+        "INSERT INTO employees (full_name, email, phone, date_of_birth, bank_account) VALUES (?,?,?,?,?)",
+        (emp.full_name, emp.email, emp.phone, emp.date_of_birth, emp.bank_account)
     )
     conn.commit()
-    user.id = cursor.lastrowid
-    return user
+    emp.id = cursor.lastrowid
+    return emp
 
-def get_all_users():
-    cursor.execute("SELECT id, name, age, email FROM users")
+def get_all_employees():
+    cursor.execute("SELECT id, full_name, email, phone, date_of_birth, bank_account FROM employees")
     rows = cursor.fetchall()
-    # Use alternative constructor to convert each row to User object
-    return [User.from_db_row(row) for row in rows]
+    return [Employee.from_db_row(row) for row in rows]
 
-def delete_user(user_id):
-    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-    conn.commit()
-    return cursor.rowcount > 0  # True if a row was deleted
-
-def update_user(user_id, name, age, email):
-    cursor.execute(
-        "UPDATE users SET name =?, age =?, email =? WHERE id =?",
-        (name, age, email, user_id)
-    )
+def delete_employee(emp_id):
+    cursor.execute("DELETE FROM employees WHERE id =?", (emp_id,))
     conn.commit()
     return cursor.rowcount > 0
 
+def update_employee(emp_id, full_name, email, phone, date_of_birth, bank_account):
+    cursor.execute(
+        "UPDATE employees SET full_name=?, email=?, phone=?, date_of_birth=?, bank_account=? WHERE id=?",
+        (full_name, email, phone, date_of_birth, bank_account, emp_id)
+    )
+    conn.commit()
+    return cursor.rowcount > 0
 
 def print_table(data, headers):
     col_widths = [len(h) for h in headers]
@@ -87,15 +92,14 @@ def print_table(data, headers):
         print("| " + " | ".join(str(v).ljust(w) for v, w in zip(row, col_widths)) + " |")
     print(bottom)
 
-
 def main():
     def show_menu():
-        title = "USER MANAGEMENT MENU COMMANDSAD"
+        title = "EMPLOYEE MANAGEMENT MENU COMMMANDS"
         options = [
-            ("Add", "Add user "),
-            ("Show", "Show all users"),
-            ("Delete", "Delete user"),
-            ("Update", "Update user"),
+            ("Add", "Add employee"),
+            ("Show", "Show all employees"),
+            ("Delete", "Delete employee"),
+            ("Update", "Update employee"),
             ("Exit", "Exit the program")
         ]
 
@@ -121,71 +125,44 @@ def main():
         choice = input(f"\n{CYAN}{BOLD}❯{RESET} Enter command {CYAN}»{RESET} ").lower().strip()
 
         if choice == "":
-            print("⚠️  You didn't type anything. Use the menu above.")
-
+            print("⚠️ You didn't type anything. Use the menu above.")
 
         elif choice == "add":
-            # ANSI color codes
             CYAN = "\033[96m"
             GREEN = "\033[92m"
             RED = "\033[91m"
             BOLD = "\033[1m"
             RESET = "\033[0m"
-            print(f"\n{CYAN}{BOLD}➕ Add New User{RESET}")
+            print(f"\n{CYAN}{BOLD}➕ Add New Employee{RESET}")
             print(f"{CYAN}─────────────────────{RESET}")
-            name = input(f" {BOLD}Name :{RESET} ").strip()
-            age = input(f" {BOLD}Age :{RESET} ").strip()
-            email = input(f" {BOLD}Email:{RESET} ").strip()
+            full_name = input(f" {BOLD}Full Name: {RESET}").strip()
+            email = input(f" {BOLD}Email: {RESET}").strip()
+            phone = input(f" {BOLD}Phone: {RESET}").strip()
+            dob = input(f" {BOLD}Date of Birth YYYY-MM-DD: {RESET}").strip()
+            bank_account = input(f" {BOLD}Bank Account No: {RESET}").strip()
             try:
-                user = User.from_form(name, age, email)
-                save_user(user)
-                # Print saved user in table format
-                headers = ["ID", "Name", "Age", "Email"]
-                row = [user.id, user.name, user.age, user.email]
-                col_widths = [len(h) for h in headers]
-                for i, val in enumerate(row):
-                    col_widths[i] = max(col_widths[i], len(str(val)))
-                top = "+" + "+".join("-" * (w + 2) for w in col_widths) + "+"
-                mid = "+" + "+".join("=" * (w + 2) for w in col_widths) + "+"
-                bottom = top
-                print(f"\n{GREEN}✅ User saved successfully!{RESET}")
-                print(top)
-                print("| " + " | ".join(h.ljust(w) for h, w in zip(headers, col_widths)) + " |")
-                print(mid)
-                print("| " + " | ".join(str(v).ljust(w) for v, w in zip(row, col_widths)) + " |")
-                print(bottom)
+                emp = Employee.from_form(full_name, email, phone, dob, bank_account)
+                save_employee(emp)
+                headers = ["ID", "Full Name", "Email", "Phone", "DOB", "Bank Account"]
+                row = [emp.id, emp.full_name, emp.email, emp.phone, emp.date_of_birth, emp.bank_account]
+                print(f"\n{GREEN}✅ Employee saved successfully!{RESET}")
+                print_table([row], headers)
             except ValueError as e:
                 print(f"\n{RED}❌ Error: {e}{RESET}")
-
 
         elif choice == "show":
             CYAN = "\033[96m"
             BOLD = "\033[1m"
-            DIM = "\033[2m"
             RESET = "\033[0m"
-
-            users = get_all_users()
-            print(f"\n{CYAN}{BOLD}📋 Show All Users{RESET}")
+            employees = get_all_employees()
+            print(f"\n{CYAN}{BOLD}📋 Show All Employees{RESET}")
             print(f"{CYAN}─────────────────────{RESET}")
-            if not users:
-                print("ℹ️ No users found")
+            if not employees:
+                print("ℹ️ No employees found")
             else:
-                headers = ["ID", "Name", "Age", "Email"]
-                # Get data from User objects
-                data = [[u.id, u.name, u.age, u.email] for u in users]
-                # Calculate column widths
-                col_widths = [len(h) for h in headers]
-                for row in data:
-                    for i, val in enumerate(row):
-                        col_widths[i] = max(col_widths[i], len(str(val)))
-                # Print table
-                print("+" + "+".join("-" * (w + 2) for w in col_widths) + "+")
-                print("| " + " | ".join(h.ljust(w) for h, w in zip(headers, col_widths)) + " |")
-                print("+" + "+".join("=" * (w + 2) for w in col_widths) + "+")
-                for row in data:
-                    print("| " + " | ".join(str(v).ljust(w) for v, w in zip(row, col_widths)) + " |")
-                print("+" + "+".join("-" * (w + 2) for w in col_widths) + "+")
-
+                headers = ["ID", "Full Name", "Email", "Phone", "DOB", "Bank Account"]
+                data = [[e.id, e.full_name, e.email, e.phone, e.date_of_birth, e.bank_account] for e in employees]
+                print_table(data, headers)
 
         elif choice == "delete":
             CYAN = "\033[96m"
@@ -193,34 +170,20 @@ def main():
             GREEN = "\033[92m"
             BOLD = "\033[1m"
             RESET = "\033[0m"
-            print(f"\n{CYAN}{BOLD}🗑️ Delete User{RESET}")
+            print(f"\n{CYAN}{BOLD}🗑️ Delete Employee{RESET}")
             print(f"{CYAN}─────────────────────{RESET}")
             try:
-                user_id = int(input(f" {BOLD}Enter User ID to delete: {RESET}").strip())
-                # 1. Fetch the user first
-                cursor.execute("SELECT id, name, age, email FROM users WHERE id =?", (user_id,))
+                emp_id = int(input(f" {BOLD}Enter Employee ID to delete: {RESET}").strip())
+                cursor.execute("SELECT * FROM employees WHERE id =?", (emp_id,))
                 row = cursor.fetchone()
                 if row:
-                    # 2. Show the user in a table before deleting
-                    headers = ["ID", "Name", "Age", "Email"]
-                    col_widths = [len(h) for h in headers]
-                    for i, val in enumerate(row):
-                        col_widths[i] = max(col_widths[i], len(str(val)))
-                    top = "+" + "+".join("-" * (w + 2) for w in col_widths) + "+"
-                    mid = "+" + "+".join("=" * (w + 2) for w in col_widths) + "+"
-                    bottom = top
-                    print(f"\n{GREEN}✅ User {user_id} deleted successfully!{RESET}")
-                    print(f"\n{RED}⚠️ About to delete this user:{RESET}")
-                    print(top)
-                    print("| " + " | ".join(h.ljust(w) for h, w in zip(headers, col_widths)) + " |")
-                    print(mid)
-                    print("| " + " | ".join(str(v).ljust(w) for v, w in zip(row, col_widths)) + " |")
-                    print(bottom)
-                    # 3. Delete after showing
-                    cursor.execute("DELETE FROM users WHERE id =?", (user_id,))
+                    print(f"\n{RED}⚠️ About to delete this employee:{RESET}")
+                    print_table([row], ["ID", "Full Name", "Email", "Phone", "DOB", "Bank Account"])
+                    cursor.execute("DELETE FROM employees WHERE id =?", (emp_id,))
                     conn.commit()
+                    print(f"\n{GREEN}✅ Employee {emp_id} deleted successfully!{RESET}")
                 else:
-                    print(f"\n{RED}❌ No user found with ID {user_id}{RESET}")
+                    print(f"\n{RED}❌ No employee found with ID {emp_id}{RESET}")
             except ValueError:
                 print(f"\n{RED}❌ Invalid ID. Enter a number.{RESET}")
 
@@ -231,55 +194,36 @@ def main():
             RED = "\033[91m"
             BOLD = "\033[1m"
             RESET = "\033[0m"
-
-            print(f"\n{CYAN}{BOLD}✏️ Update User{RESET}")
+            print(f"\n{CYAN}{BOLD}✏️ Update Employee{RESET}")
             print(f"{CYAN}─────────────────────{RESET}")
             try:
-                user_id = int(input(f" {BOLD}Enter User ID to update: {RESET}").strip())
-
-                # Get old data
-                cursor.execute("SELECT id, name, age, email FROM users WHERE id =?", (user_id,))
+                emp_id = int(input(f" {BOLD}Enter Employee ID to update: {RESET}").strip())
+                cursor.execute("SELECT * FROM employees WHERE id =?", (emp_id,))
                 old_row = cursor.fetchone()
-
                 if not old_row:
-                    print(f"\n{RED}❌ No user found with ID {user_id}{RESET}")
+                    print(f"\n{RED}❌ No employee found with ID {emp_id}{RESET}")
                 else:
-                    # Show old data
-                    headers = ["ID", "Name", "Age", "Email"]
+                    headers = ["ID", "Full Name", "Email", "Phone", "DOB", "Bank Account"]
                     print(f"\n{YELLOW}Old Data:{RESET}")
                     print_table([old_row], headers)
 
-                    # Get new data
                     print(f"\n{BOLD}Enter new values. Press Enter to keep current value:{RESET}")
-                    new_name = input(f" Name [{old_row[1]}]: ").strip() or old_row[1]
-                    new_age = input(f" Age [{old_row[2]}]: ").strip() or str(old_row[2])
-                    new_email = input(f" Email [{old_row[3]}]: ").strip() or old_row[3]
+                    new_name = input(f" Full Name [{old_row[1]}]: ").strip() or old_row[1]
+                    new_email = input(f" Email [{old_row[2]}]: ").strip() or old_row[2]
+                    new_phone = input(f" Phone [{old_row[3]}]: ").strip() or old_row[3]
+                    new_dob = input(f" DOB [{old_row[4]}]: ").strip() or old_row[4]
+                    new_bank = input(f" Bank Account [{old_row[5]}]: ").strip() or old_row[5]
 
-                    try:
-                        new_age = int(new_age)
-                        if new_age < 0:
-                            raise ValueError("Age can't be negative")
-
-                        # Update
-                        if update_user(user_id, new_name, new_age, new_email):
-                            # Get updated data
-                            cursor.execute("SELECT id, name, age, email FROM users WHERE id =?", (user_id,))
-                            new_row = cursor.fetchone()
-
-                            print(f"\n{GREEN}✅ User updated successfully!{RESET}")
-                            print(f"\n{GREEN}New Data:{RESET}")
-                            print_table([new_row], headers)
-                        else:
-                            print(f"\n{RED}❌ Update failed{RESET}")
-
-                    except ValueError as e:
-                        print(f"\n{RED}❌ Error: {e}{RESET}")
-
+                    if update_employee(emp_id, new_name, new_email, new_phone, new_dob, new_bank):
+                        cursor.execute("SELECT * FROM employees WHERE id =?", (emp_id,))
+                        new_row = cursor.fetchone()
+                        print(f"\n{GREEN}✅ Employee updated successfully!{RESET}")
+                        print(f"\n{GREEN}New Data:{RESET}")
+                        print_table([new_row], headers)
+                    else:
+                        print(f"\n{RED}❌ Update failed{RESET}")
             except ValueError:
                 print(f"\n{RED}❌ Invalid ID. Enter a number.{RESET}")
-
-
-
 
         elif choice == 'exit':
             CYAN = "\033[96m"
@@ -289,7 +233,7 @@ def main():
             msg = "Exiting the program. Goodbye!"
             width = len(msg) + 7
             print(f"\n{CYAN}╔{'═' * width}╗{RESET}")
-            print(f"{CYAN}║{RESET}  {GREEN}{BOLD}👋 {msg}{RESET} {CYAN} ║{RESET}")
+            print(f"{CYAN}║{RESET} {GREEN}{BOLD}👋 {msg}{RESET} {CYAN}  ║{RESET}")
             print(f"{CYAN}╚{'═' * width}╝{RESET}")
             break
         else:
@@ -299,5 +243,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
